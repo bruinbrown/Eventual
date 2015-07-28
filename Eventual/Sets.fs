@@ -42,3 +42,28 @@ type TwoPhaseSet<'a>(adds:IImmutableSet<'a>, removes:IImmutableSet<'a>) =
         let adds' = adds.Union(that.Adds)
         let removes' = removes.Union(that.Removes)
         TwoPhaseSet(adds', removes')
+
+[<Sealed>]
+type LWWSet<'a>(adds:IImmutableDictionary<'a, int64>, removes:IImmutableDictionary<'a, int64>) =
+    inherit AbstractCvRDT<LWWSet<'a>, IImmutableDictionary<'a,int64> * IImmutableDictionary<'a,int64>>()
+    
+    static member Empty = LWWSet(ImmutableDictionary<_, int64>.Empty, ImmutableDictionary<_, int64>.Empty)
+
+    member this.Adds = adds
+    member this.Removes = removes
+
+    member this.Add(value) =
+        LWWSet(adds.Add(value, Eventual.VectorClocks.Timestamp.Counter.GetAndIncrement()), removes)
+
+    member this.Remove(value) =
+        LWWSet(adds, removes.Add(value, Eventual.VectorClocks.Timestamp.Counter.GetAndIncrement()))
+
+    member this.Contains(value) =
+        adds.ContainsKey(value) && not (removes.ContainsKey(value))
+
+    override this.State = (adds, removes)
+
+    override this.Merge(that) =
+        let adds = (adds.ToImmutableHashSet().Union(that.Adds.ToImmutableHashSet())).ToImmutableDictionary()
+        let removes = (removes.ToImmutableHashSet().Union(that.Removes.ToImmutableHashSet())).ToImmutableDictionary()
+        LWWSet(adds, removes)
