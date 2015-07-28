@@ -32,6 +32,7 @@ module private DefaultClocks =
               member x.NextTimestamp(currentTimestamp : int64) = 
                   Math.Min(-DateTime.UtcNow.TotalMilliseconds, currentTimestamp - 1L) }
 
+[<Sealed>]
 type LWWRegister<'a when 'a : equality>(node : string, value : 'a, timestamp : int64) = 
     inherit AbstractCvRDT<LWWRegister<'a>, 'a * string * int64>()
     member this.Value = value
